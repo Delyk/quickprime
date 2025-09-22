@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <iostream>
 #include <mutex>
+#include <thread>
 #include <vector>
 
 std::mutex mut;
@@ -16,6 +17,8 @@ static void cut_non_primes(std::vector<uint_fast64_t> &lp,
 }
 
 void prime::sieve_linear(uint_fast64_t n) {
+  std::size_t thr_count = std::thread::hardware_concurrency();
+  std::vector<std::thread> threads(thr_count);
   std::vector<uint_fast64_t> pr;
   std::vector<uint_fast64_t> lp(n + 1, 0);
   for (std::size_t i = 2; i <= n; i++) {
