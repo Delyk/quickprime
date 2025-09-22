@@ -1,27 +1,30 @@
 #include "prime.h"
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <mutex>
 #include <vector>
 
-static void
+std::mutex mut;
+static void cut_non_primes(std::vector<uint_fast64_t> &lp,
+                           const std::vector<uint_fast64_t> &pr,
+                           const std::size_t &i, const uint_fast64_t &n) {
+  for (auto p = pr.begin(); *p <= lp[i] && *p * i <= n; p++) {
+    std::lock_guard<std::mutex> m(mut);
+    lp[*p * i] = *p;
+  }
+}
 
-    void
-    prime::sieve_linear(uint_fast64_t n) {
-  std::vector<unsigned long long> pr;
-  std::vector<unsigned long long> lp(n + 1, 0); // Минимальные простые делители
-  // Для каждого числа от 2 до n
+void prime::sieve_linear(uint_fast64_t n) {
+  std::vector<uint_fast64_t> pr;
+  std::vector<uint_fast64_t> lp(n + 1, 0);
   for (std::size_t i = 2; i <= n; i++) {
-    // Если lp пуст
     if (!lp[i]) {
-      // Устанавливаем пустоту в i
       lp[i] = i;
-      pr.push_back(i); // ПЖцомещаем индекс в массив простых чисел
+      pr.push_back(i);
     }
-    // Начинаем итерацию в массиве простых чисел
-    // пока не достигнем добавленного числа или числа до
-    // которого ищем простые
     for (auto p = pr.begin(); *p <= lp[i] && *p * i <= n; p++) {
-      lp[*p * i] = *p; // Устанавливаем все кратные в ненулевые значения
+      lp[*p * i] = *p;
     }
   }
   for (auto i : pr) {
