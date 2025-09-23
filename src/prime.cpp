@@ -30,12 +30,13 @@ void prime::sieve_linear(uint_fast64_t n) {
       threads.emplace_back(cut_non_primes, std ::ref(lp), *p, std ::ref(i),
                            std ::ref(n));
       if (threads.size() >= thr_count) {
-        for (auto &t : threads) {
-          if (t.joinable()) {
-            t.join();
+        for (auto it = threads.begin(); it != threads.end(); it++) {
+          if (it->joinable()) {
+            it->join();
+            threads.erase(it);
+            break;
           }
         }
-        threads.clear();
       }
     }
     for (auto &t : threads) {

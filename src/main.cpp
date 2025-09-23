@@ -2,7 +2,7 @@
 using namespace prime;
 
 int main() {
-  sieve_linear(30);
+  sieve_linear(100);
 
   return 0;
 }
