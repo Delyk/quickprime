@@ -64,18 +64,17 @@ std::vector<uint_fast64_t> prime::sieve_linear(uint_fast64_t n) {
 
 std::vector<uint_fast64_t> prime::sieve_linear_skip(uint_fast64_t n) {
   std::vector<uint_fast64_t> pr{2};
-  std::vector<uint_fast64_t> lp(n / 2 + 1, 0);
+  std::vector<uint_fast64_t> lp(n / 2, 0);
 
-  for (std::size_t i = 0; i <= n / 2; i++) {
+  for (std::size_t i = 0; i < n / 2 - 1; i++) {
     uint_fast64_t num = 2 * i + 3;
     if (!lp[i]) {
       lp[i] = num;
       pr.push_back(num);
     }
-
-    for (auto p = pr.begin() + 1; *p <= lp[i] + 3 && *p * num <= n / 2; p++) {
-      uint_fast64_t pit = (std::pow(*p, 2) - 3) / 2;
-      lp[*p * num] = *p;
+    for (auto p = pr.begin() + 1; *p <= lp[i] && *p * num <= n && p != pr.end();
+         p++) {
+      lp[(*p * num) / 2 - 1] = num;
     }
   }
 
