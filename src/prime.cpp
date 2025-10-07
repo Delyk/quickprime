@@ -37,8 +37,60 @@ static void wait_threads(std::vector<std::thread> &threads) {
   threads.clear();
 }
 
+static bool isNotDivide(uint_fast64_t &i,
+                        const std::vector<uint_fast64_t> &bazis) {
+  for (unsigned long long j : bazis) {
+    if (!(i % j)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static void startConsequence(std::vector<uint_fast64_t> &wheel,
+                             const std::vector<uint_fast64_t> &bazis,
+                             const uint_fast64_t &primorial) {
+  for (std::size_t i = 1; i <= primorial; i++) {
+    if (isNotDivide(i, bazis)) {
+      wheel.push_back(i);
+    }
+  }
+}
+
+static inline uint_fast64_t
+getStartSize(const std::vector<uint_fast64_t> &bazis) {
+  unsigned long long size = 1;
+  for (unsigned long long i : bazis) {
+    size *= (i - 1);
+  }
+  return size;
+}
+
+static std::vector<uint_fast64_t> wheel_factorization(uint_fast64_t n) {
+  std::vector<uint_fast64_t> wheel;
+  std::vector<uint_fast64_t> bazis{2, 3, 5, 7};
+  uint_fast64_t primorial = 1;
+  for (auto i : bazis) {
+    primorial *= i;
+  }
+
+  startConsequence(wheel, bazis, primorial);
+  uint_fast64_t size = getStartSize(bazis);
+  for (uint_fast64_t i = 1; i <= primorial; i++) {
+    for (std::size_t j = 0; j < size; j++) {
+      uint_fast64_t val = wheel[j] + i * primorial;
+      if (val > n) {
+        return wheel;
+      }
+      wheel.push_back(val);
+    }
+  }
+
+  return wheel;
+}
+
 void prime::sieve_linear_print(uint_fast64_t n) {
-  std::vector<uint_fast64_t> pr = sieve_linear_skip(n);
+  std::vector<uint_fast64_t> pr = sieve_atkhin(n);
 
   for (auto i : pr) {
     std::cout << i << std::endl;
@@ -183,6 +235,65 @@ std::vector<uint_fast64_t> prime::sieve_segmented(uint_fast64_t n) {
   return pr;
 }
 
+std::vector<uint_fast64_t> prime::sieve_segmented_wheel(uint_fast64_t n) {
+  uint_fast64_t lim = std::sqrt(n);
+  std::vector<uint_fast64_t> pr;
+  std::vector<bool> lp(lim + 1, true);
+  std::vector<uint_fast64_t> wheel = wheel_factorization(n);
+  pr = sieve_linear_skip(lim);
+
+  uint_fast64_t low = lim;
+  uint_fast64_t high = 2 * lim - 1;
+  auto it = wheel.begin();
+  if (high > n) {
+    high = n;
+  }
+  while (*it < low) {
+    if (it == wheel.end()) {
+      it--;
+      break;
+    }
+    it++;
+  }
+
+  while (low <= n) {
+    for (auto i : pr) {
+      uint_fast64_t start = (low + i - 1) / i * i;
+      if (start < low)
+        start = i * i;
+      if (start < low)
+        start = low;
+
+      for (std::size_t j = start; j <= high; j += i) {
+        lp[j - low] = false;
+      }
+      while (*it < high) {
+        if (lp[*it - low]) {
+          for (uint_fast64_t j = *it + *it; j <= high; j += *it) {
+            lp[j - low] = false;
+          }
+        }
+        it++;
+      }
+    }
+
+    for (std::size_t i = low; i <= high; i++) {
+      if (lp[i - low]) {
+        pr.push_back(i);
+      }
+    }
+
+    low += lim;
+    high += lim;
+    if (high > n) {
+      high = n;
+    }
+    std::fill(lp.begin(), lp.end(), true);
+  }
+
+  return pr;
+}
+
 std::vector<uint_fast64_t> prime::sieve_linear_parallel(uint_fast64_t n) {
 
   std::vector<std::thread> threads;
@@ -210,4 +321,53 @@ std::vector<uint_fast64_t> prime::sieve_linear_parallel(uint_fast64_t n) {
     wait_threads(threads);
   }
   return pr;
+}
+
+std::vector<uint_fast64_t> prime::sieve_atkhin(uint_fast64_t n) {
+  std::vector<uint_fast64_t> primes{2, 3, 5};
+  if (n <= 5) {
+    return primes;
+  }
+  std::vector<bool> nums(n + 1, false);
+  uint_fast64_t lim = std::sqrt(n);
+  if (lim >= 3)
+    nums[2] = nums[3] = true;
+
+  for (uint_fast64_t x = 1; x <= lim; x++) {
+    uint_fast64_t x2 = x * x;
+    for (uint_fast64_t y = 1; y <= lim; y++) {
+      uint_fast64_t y2 = y * y;
+      uint_fast64_t eq = 4 * x2 + y2;
+      if (eq <= n && (eq % 12 == 1 || eq % 12 == 5)) {
+        nums[eq] = !nums[eq];
+      }
+
+      eq = 3 * x2 + y2;
+      if (eq <= n && (eq % 12 == 7)) {
+        nums[eq] = !nums[eq];
+      }
+      if (x > y) {
+        eq = 3 * x2 - y2;
+        if (eq <= n && (eq % 12 == 11)) {
+          nums[eq] = !nums[eq];
+        }
+      }
+    }
+  }
+
+  for (uint_fast64_t i = 5; i <= lim; i++) {
+    if (nums[i]) {
+      uint_fast64_t i2 = i * i;
+      for (uint_fast64_t j = i2; j < n; j += i2) {
+        nums[j] = false;
+      }
+    }
+  }
+
+  for (std::size_t i = 6; i <= n; i++) {
+    if (nums[i]) {
+      primes.push_back(i);
+    }
+  }
+  return primes;
 }
