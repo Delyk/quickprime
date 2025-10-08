@@ -3,38 +3,52 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
-#include <mutex>
-#include <thread>
+#include <memory>
 #include <vector>
 
-static std::mutex mut;
-static std::size_t thr_count = std::thread::hardware_concurrency();
-static void cut_non_primes(std::vector<uint_fast64_t> &lp,
-                           std::vector<uint_fast64_t> &pr,
-                           const uint_fast64_t &n, const std::size_t &i) {
-  for (auto p = pr.begin(); *p <= lp[i] && *p * i <= n; p++) {
-    std::lock_guard<std::mutex> m(mut);
-    lp[*p * i] = *p;
-  }
+prime::bitmap::boolean::boolean() {
+  this->bit = 0;
+  this->offset = 0;
+  this->byte = nullptr;
 }
-static void cut_classic_sieve(std::vector<uint_fast64_t> &lp,
-                              const uint_fast64_t &start,
-                              const uint_fast64_t &low,
-                              const uint_fast64_t &high,
-                              const uint_fast64_t &i) {
-  for (std::size_t j = start; j <= high; j += i) {
-    std::lock_guard<std::mutex> m(mut);
-    lp[j - low] = j;
+
+prime::bitmap::boolean::boolean(std::shared_ptr<char> &byte, unsigned offset)
+    : byte(byte), offset(offset) {
+  bit = *this->byte.get() & (1 << offset);
+}
+
+prime::bitmap::boolean::operator bool() const { return bit; }
+
+prime::bitmap::boolean &prime::bitmap::boolean::operator=(bool bit) {
+  this->bit = bit;
+  *byte.get() &= ~(this->bit << offset);
+  return *this;
+}
+
+prime::bitmap::bitmap(uint_fast64_t size, bool fill) {
+  this->size = size / 8;
+  bits = std::make_unique<char[]>(size);
+  for (uint_fast64_t i = 0; i < size; i++) {
+    bits[i] = fill;
   }
 }
 
-static void wait_threads(std::vector<std::thread> &threads) {
-  for (auto &t : threads) {
-    if (t.joinable()) {
-      t.join();
-    }
+prime::bitmap::boolean &prime::bitmap::operator[](uint_fast64_t index) {
+  uint_fast64_t true_index = index / 8;
+  unsigned offset = index % 8;
+  if (!offset) {
+    offset = 8;
   }
-  threads.clear();
+  std::shared_ptr<char> byte = std::make_shared<char>(bits[true_index]);
+  bit = boolean(byte, offset);
+  return bit;
+}
+
+void prime::bitmap::reset(bool num) {
+  char number = num ? -1 : 0;
+  for (size_t i = 0; i < size; i++) {
+    bits[i] = number;
+  }
 }
 
 static bool isNotDivide(uint_fast64_t &i,
@@ -90,7 +104,7 @@ static std::vector<uint_fast64_t> wheel_factorization(uint_fast64_t n) {
 }
 
 void prime::sieve_linear_print(uint_fast64_t n) {
-  std::vector<uint_fast64_t> pr = sieve_atkhin(n);
+  std::vector<uint_fast64_t> pr = sieve_segmented(n);
 
   for (auto i : pr) {
     std::cout << i << std::endl;
@@ -133,67 +147,11 @@ std::vector<uint_fast64_t> prime::sieve_linear_skip(uint_fast64_t n) {
   return pr;
 }
 
-std::vector<uint_fast64_t> prime::sieve_segmented_parallel(uint_fast64_t n) {
-
-  uint_fast64_t lim = std::sqrt(n) + 1;
-  std::vector<std::thread> threads;
-  std::vector<uint_fast64_t> pr;
-  std::vector<uint_fast64_t> lp(lim + 1, 0);
-  pr = sieve_linear(lim);
-
-  uint_fast64_t low = lim;
-  uint_fast64_t high = 2 * lim - 1;
-  if (high > n) {
-    high = n;
-  }
-
-  while (low <= n) {
-    for (auto i : pr) {
-
-      uint_fast64_t start = (low + i - 1) / i * i;
-      if (start < low) {
-        start = i * i;
-      }
-      if (start < low) {
-        start = low;
-      }
-
-      if (threads.size() >= thr_count) {
-        for (auto it = threads.begin(); it != threads.end(); it++) {
-          if (it->joinable()) {
-            it->join();
-            threads.erase(it);
-            break;
-          }
-        }
-      }
-      threads.emplace_back(cut_classic_sieve, std::ref(lp), std::ref(start),
-                           std::ref(low), std::ref(high), std::ref(i));
-    }
-
-    wait_threads(threads);
-    for (std::size_t i = low; i <= high; i++) {
-      if (!lp[i - low]) {
-        pr.push_back(i);
-      }
-    }
-
-    low += lim;
-    high += lim;
-    if (high > n) {
-      high = n;
-    }
-    std::fill(lp.begin(), lp.end(), 0);
-  }
-
-  return pr;
-}
-
 std::vector<uint_fast64_t> prime::sieve_segmented(uint_fast64_t n) {
 
   uint_fast64_t lim = std::sqrt(n);
   std::vector<uint_fast64_t> pr;
-  std::vector<bool> lp(lim + 1, true);
+  bitmap lp(lim + 1, true);
   pr = sieve_linear(lim);
 
   uint_fast64_t low = lim;
@@ -229,7 +187,7 @@ std::vector<uint_fast64_t> prime::sieve_segmented(uint_fast64_t n) {
     if (high > n) {
       high = n;
     }
-    std::fill(lp.begin(), lp.end(), true);
+    lp.reset(true);
   }
 
   return pr;
@@ -238,7 +196,7 @@ std::vector<uint_fast64_t> prime::sieve_segmented(uint_fast64_t n) {
 std::vector<uint_fast64_t> prime::sieve_segmented_wheel(uint_fast64_t n) {
   uint_fast64_t lim = std::sqrt(n);
   std::vector<uint_fast64_t> pr;
-  std::vector<bool> lp(lim + 1, true);
+  bitmap lp(lim + 1, true);
   std::vector<uint_fast64_t> wheel = wheel_factorization(n);
   pr = sieve_linear_skip(lim);
 
@@ -288,38 +246,9 @@ std::vector<uint_fast64_t> prime::sieve_segmented_wheel(uint_fast64_t n) {
     if (high > n) {
       high = n;
     }
-    std::fill(lp.begin(), lp.end(), true);
+    lp.reset(true);
   }
 
-  return pr;
-}
-
-std::vector<uint_fast64_t> prime::sieve_linear_parallel(uint_fast64_t n) {
-
-  std::vector<std::thread> threads;
-  std::vector<uint_fast64_t> pr;
-  std::vector<uint_fast64_t> lp(n + 1, 0);
-
-  for (std::size_t i = 2; i <= n; i++) {
-    if (!lp[i]) {
-      lp[i] = i;
-      pr.push_back(i);
-    }
-
-    threads.emplace_back(cut_non_primes, std ::ref(lp), std::ref(pr),
-                         std::ref(n), std ::ref(i));
-
-    if (threads.size() >= thr_count) {
-      for (auto it = threads.begin(); it != threads.end(); it++) {
-        if (it->joinable()) {
-          it->join();
-          threads.erase(it);
-          break;
-        }
-      }
-    }
-    wait_threads(threads);
-  }
   return pr;
 }
 
@@ -328,7 +257,7 @@ std::vector<uint_fast64_t> prime::sieve_atkhin(uint_fast64_t n) {
   if (n <= 5) {
     return primes;
   }
-  std::vector<bool> nums(n + 1, false);
+  bitmap nums(n + 1, false);
   uint_fast64_t lim = std::sqrt(n);
   if (lim >= 3)
     nums[2] = nums[3] = true;
