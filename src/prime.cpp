@@ -1,46 +1,76 @@
 #include "prime.h"
+#include <bitset>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
-#include <memory>
 #include <vector>
+
+void prime::sieve_linear_print(uint_fast64_t n) {
+  std::vector<uint_fast64_t> pr = sieve_segmented_wheel(n);
+
+  std::cout << "\n\n";
+  for (auto i : pr) {
+    std::cout << i << std::endl;
+  }
+}
 
 prime::bitmap::boolean::boolean() {
   this->bit = 0;
   this->offset = 0;
-  this->byte = nullptr;
+  this->byte = 0;
 }
 
-prime::bitmap::boolean::boolean(std::shared_ptr<char> &byte, unsigned offset)
-    : byte(byte), offset(offset) {
-  bit = *this->byte.get() & (1 << offset);
+prime::bitmap::boolean::boolean(char &byte, unsigned offset) : offset(offset) {
+  this->byte = &byte;
+  bit = byte & (1 << offset);
+  // std::cout << "Byte: " << std::bitset<8>(byte) << std::endl;
+  // std::cout << "Offset: " << offset << std::endl;
+  // std::cout << "Bit: " << bit << std::endl;
 }
 
 prime::bitmap::boolean::operator bool() const { return bit; }
 
 prime::bitmap::boolean &prime::bitmap::boolean::operator=(bool bit) {
   this->bit = bit;
-  *byte.get() &= ~(this->bit << offset);
+  if (bit) {
+    // std::cout << "Equation:\n " << std::bitset<8>(*byte) << " | "
+    //           << std::bitset<8>(1 << offset) << " = ";
+    *byte |= 1 << offset;
+  } else {
+    // std::cout << "Equation:\n " << std::bitset<8>(*byte) << " & "
+    //           << std::bitset<8>(~(1 << offset)) << " = ";
+    *byte &= ~(1 << offset);
+  }
+  // std::cout << std::bitset<8>(*byte) << std::endl;
   return *this;
 }
 
 prime::bitmap::bitmap(uint_fast64_t size, bool fill) {
-  this->size = size / 8;
-  bits = std::make_unique<char[]>(size);
-  for (uint_fast64_t i = 0; i < size; i++) {
-    bits[i] = fill;
+  this->size = size / 8 + 1;
+  bits = new char[this->size];
+
+  char num;
+  if (fill) {
+    num = -1;
+  } else {
+    num = 0;
   }
+
+  // std::cout << "Init array: ";
+  for (uint_fast64_t i = 0; i < this->size; i++) {
+    bits[i] = num;
+    // std::cout << std::bitset<8>(bits[i]) << " ";
+  }
+  // std::cout << "\n";
 }
 
 prime::bitmap::boolean &prime::bitmap::operator[](uint_fast64_t index) {
   uint_fast64_t true_index = index / 8;
+  // std::cout << "\nIndex: " << index << "\nTrue index: " << true_index
+  // << std::endl;
   unsigned offset = index % 8;
-  if (!offset) {
-    offset = 8;
-  }
-  std::shared_ptr<char> byte = std::make_shared<char>(bits[true_index]);
-  bit = boolean(byte, offset);
+  bit = boolean(bits[true_index], offset);
   return bit;
 }
 
@@ -49,6 +79,14 @@ void prime::bitmap::reset(bool num) {
   for (size_t i = 0; i < size; i++) {
     bits[i] = number;
   }
+}
+
+prime::bitmap::~bitmap() {
+  // std::cout << "Final array: ";
+  // for (uint_fast64_t i = 0; i < size; i++) {
+  //   std::cout << std::bitset<8>(bits[i]) << " ";
+  // }
+  delete[] bits;
 }
 
 static bool isNotDivide(uint_fast64_t &i,
@@ -101,14 +139,6 @@ static std::vector<uint_fast64_t> wheel_factorization(uint_fast64_t n) {
   }
 
   return wheel;
-}
-
-void prime::sieve_linear_print(uint_fast64_t n) {
-  std::vector<uint_fast64_t> pr = sieve_segmented(n);
-
-  for (auto i : pr) {
-    std::cout << i << std::endl;
-  }
 }
 
 std::vector<uint_fast64_t> prime::sieve_linear(uint_fast64_t n) {
@@ -225,7 +255,11 @@ std::vector<uint_fast64_t> prime::sieve_segmented_wheel(uint_fast64_t n) {
       for (std::size_t j = start; j <= high; j += i) {
         lp[j - low] = false;
       }
+
       while (*it < high) {
+        if (it == wheel.end()) {
+          break;
+        }
         if (lp[*it - low]) {
           for (uint_fast64_t j = *it + *it; j <= high; j += *it) {
             lp[j - low] = false;
@@ -242,10 +276,21 @@ std::vector<uint_fast64_t> prime::sieve_segmented_wheel(uint_fast64_t n) {
     }
 
     low += lim;
+    if (*it < low) {
+      while (*it < low) {
+        if (it == wheel.end()) {
+          it--;
+          break;
+        }
+        it++;
+      }
+    }
+
     high += lim;
     if (high > n) {
       high = n;
     }
+
     lp.reset(true);
   }
 
@@ -257,7 +302,7 @@ std::vector<uint_fast64_t> prime::sieve_atkhin(uint_fast64_t n) {
   if (n <= 5) {
     return primes;
   }
-  bitmap nums(n + 1, false);
+  bitmap nums(n, false);
   uint_fast64_t lim = std::sqrt(n);
   if (lim >= 3)
     nums[2] = nums[3] = true;

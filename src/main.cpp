@@ -3,8 +3,8 @@
 #include <iomanip>
 #include <iostream>
 #include <ratio>
-#define COUNT 1
-#define TEST_NUM 100
+#define COUNT 1000
+#define TEST_NUM 1000
 using namespace prime;
 using namespace std;
 

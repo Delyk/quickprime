@@ -9,23 +9,24 @@ namespace prime {
 
 class bitmap {
   class boolean {
-    std::shared_ptr<char> byte;
+    char *byte;
     int bit;
     unsigned offset;
 
   public:
-    boolean(std::shared_ptr<char> &byte, unsigned offset);
+    boolean(char &byte, unsigned offset);
     boolean();
     operator bool() const;
     boolean &operator=(bool bit);
   };
 
-  std::unique_ptr<char[]> bits;
+  char *bits;
   uint_fast64_t size;
   boolean bit;
 
 public:
   bitmap(uint_fast64_t size, bool fill = true);
+  ~bitmap();
   boolean &operator[](uint_fast64_t index);
   void reset(bool num = true);
 };
