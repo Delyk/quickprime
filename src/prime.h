@@ -37,7 +37,5 @@ std::vector<uint_fast64_t> sieve_linear_skip(uint_fast64_t n);
 
 std::vector<uint_fast64_t> sieve_segmented(uint_fast64_t n);
 std::vector<uint_fast64_t> sieve_segmented_wheel(uint_fast64_t n);
-std::vector<uint_fast64_t> sieve_segmented_parallel(uint_fast64_t n);
-std::vector<uint_fast64_t> sieve_linear_parallel(uint_fast64_t n);
 std::vector<uint_fast64_t> sieve_atkhin(uint_fast64_t n);
 } // namespace prime
