@@ -3,9 +3,19 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <ostream>
 #include <vector>
 
-void prime::sieve_linear_print(uint_fast64_t n) {
+prime::sieve &prime::sieve::operator<<(const uint_fast64_t n) { return *this; }
+
+void prime::sieve::output(std::vector<uint_fast64_t>::iterator begin,
+                          std::vector<uint_fast64_t>::iterator end) {
+  for (; begin != end; begin++) {
+    out << *begin;
+  }
+}
+
+void prime::sieve::sieve_linear_print(uint_fast64_t n) {
   std::vector<uint_fast64_t> pr = sieve_segmented_wheel(n);
 
   for (auto i : pr) {
@@ -72,7 +82,7 @@ prime::bitmap::~bitmap() { delete[] bits; }
 
 static bool isNotDivide(uint_fast64_t &i,
                         const std::vector<uint_fast64_t> &bazis) {
-  for (unsigned long long j : bazis) {
+  for (uint_fast64_t j : bazis) {
     if (!(i % j)) {
       return false;
     }
@@ -92,8 +102,8 @@ static void startConsequence(std::vector<uint_fast64_t> &wheel,
 
 static inline uint_fast64_t
 getStartSize(const std::vector<uint_fast64_t> &bazis) {
-  unsigned long long size = 1;
-  for (unsigned long long i : bazis) {
+  uint_fast64_t size = 1;
+  for (uint_fast64_t i : bazis) {
     size *= (i - 1);
   }
   return size;
@@ -122,7 +132,7 @@ static std::vector<uint_fast64_t> wheel_factorization(uint_fast64_t n) {
   return wheel;
 }
 
-std::vector<uint_fast64_t> prime::sieve_linear(uint_fast64_t n) {
+std::vector<uint_fast64_t> prime::sieve::sieve_linear(uint_fast64_t n) {
   if (n < 2) {
     return {};
   }
@@ -142,7 +152,7 @@ std::vector<uint_fast64_t> prime::sieve_linear(uint_fast64_t n) {
   return pr;
 }
 
-std::vector<uint_fast64_t> prime::sieve_linear_skip(uint_fast64_t n) {
+std::vector<uint_fast64_t> prime::sieve::sieve_linear_skip(uint_fast64_t n) {
   if (n < 2) {
     return {};
   }
@@ -164,7 +174,7 @@ std::vector<uint_fast64_t> prime::sieve_linear_skip(uint_fast64_t n) {
   return pr;
 }
 
-std::vector<uint_fast64_t> prime::sieve_segmented(uint_fast64_t n) {
+std::vector<uint_fast64_t> prime::sieve::sieve_segmented(uint_fast64_t n) {
   if (n < 2) {
     return {};
   }
@@ -213,7 +223,8 @@ std::vector<uint_fast64_t> prime::sieve_segmented(uint_fast64_t n) {
   return pr;
 }
 
-std::vector<uint_fast64_t> prime::sieve_segmented_wheel(uint_fast64_t n) {
+std::vector<uint_fast64_t>
+prime::sieve::sieve_segmented_wheel(uint_fast64_t n) {
   if (n < 2) {
     return {};
   }
@@ -280,7 +291,7 @@ std::vector<uint_fast64_t> prime::sieve_segmented_wheel(uint_fast64_t n) {
   return pr;
 }
 
-std::vector<uint_fast64_t> prime::sieve_atkhin(uint_fast64_t n) {
+std::vector<uint_fast64_t> prime::sieve::sieve_atkhin(uint_fast64_t n) {
   if (n < 2) {
     return {};
   }
