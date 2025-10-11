@@ -6,20 +6,20 @@
 #include <ostream>
 #include <vector>
 
+prime::sieve::sieve(uint_fast64_t n) : out(std::cout) {
+  sieve_linear(n);
+  sieve_linear_skip(n);
+  sieve_segmented(n);
+  sieve_segmented_wheel(n);
+  sieve_atkhin(n);
+}
+
 prime::sieve &prime::sieve::operator<<(const uint_fast64_t n) { return *this; }
 
 void prime::sieve::output(std::vector<uint_fast64_t>::iterator begin,
                           std::vector<uint_fast64_t>::iterator end) {
   for (; begin != end; begin++) {
-    out << *begin;
-  }
-}
-
-void prime::sieve::sieve_linear_print(uint_fast64_t n) {
-  std::vector<uint_fast64_t> pr = sieve_segmented_wheel(n);
-
-  for (auto i : pr) {
-    std::cout << i << std::endl;
+    out << *begin << "\n";
   }
 }
 
@@ -32,6 +32,12 @@ prime::bitmap::boolean::boolean() {
 prime::bitmap::boolean::boolean(char &byte, unsigned offset) : offset(offset) {
   this->byte = &byte;
   bit = byte & (1 << offset);
+}
+
+prime::bitmap::boolean::~boolean() {
+  byte = nullptr;
+  bit = 0;
+  offset = 0;
 }
 
 prime::bitmap::boolean::operator bool() const { return bit; }
@@ -149,6 +155,7 @@ std::vector<uint_fast64_t> prime::sieve::sieve_linear(uint_fast64_t n) {
       lp[*p * i] = *p;
     }
   }
+
   return pr;
 }
 
@@ -174,9 +181,9 @@ std::vector<uint_fast64_t> prime::sieve::sieve_linear_skip(uint_fast64_t n) {
   return pr;
 }
 
-std::vector<uint_fast64_t> prime::sieve::sieve_segmented(uint_fast64_t n) {
+void prime::sieve::sieve_segmented(uint_fast64_t n) {
   if (n < 2) {
-    return {};
+    return;
   }
 
   uint_fast64_t lim = std::sqrt(n);
@@ -219,14 +226,12 @@ std::vector<uint_fast64_t> prime::sieve::sieve_segmented(uint_fast64_t n) {
     }
     lp.reset(true);
   }
-
-  return pr;
+  output(pr.begin(), pr.end());
 }
 
-std::vector<uint_fast64_t>
-prime::sieve::sieve_segmented_wheel(uint_fast64_t n) {
+void prime::sieve::sieve_segmented_wheel(uint_fast64_t n) {
   if (n < 2) {
-    return {};
+    return;
   }
   uint_fast64_t lim = std::sqrt(n);
   std::vector<uint_fast64_t> pr;
@@ -287,18 +292,14 @@ prime::sieve::sieve_segmented_wheel(uint_fast64_t n) {
 
     lp.reset(true);
   }
-
-  return pr;
+  output(pr.begin(), pr.end());
 }
 
-std::vector<uint_fast64_t> prime::sieve::sieve_atkhin(uint_fast64_t n) {
+void prime::sieve::sieve_atkhin(uint_fast64_t n) {
   if (n < 2) {
-    return {};
+    return;
   }
   std::vector<uint_fast64_t> primes{2, 3, 5};
-  if (n <= 5) {
-    return primes;
-  }
   bitmap nums(n, false);
   uint_fast64_t lim = std::sqrt(n);
   if (lim >= 3)
@@ -340,5 +341,6 @@ std::vector<uint_fast64_t> prime::sieve::sieve_atkhin(uint_fast64_t n) {
       primes.push_back(i);
     }
   }
-  return primes;
+
+  output(primes.begin(), primes.end());
 }
