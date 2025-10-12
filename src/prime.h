@@ -3,6 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <fstream>
+#include <initializer_list>
+#include <iostream>
 #include <memory>
 #include <ostream>
 #include <thread>
@@ -10,6 +13,7 @@
 namespace prime {
 
 class bitmap {
+protected:
   class boolean {
     char *byte;
     int bit;
@@ -23,15 +27,25 @@ class bitmap {
     ~boolean();
   };
 
+  boolean bit;
   char *bits;
   uint_fast64_t size;
-  boolean bit;
 
 public:
   bitmap(uint_fast64_t size, bool fill = true);
   ~bitmap();
   boolean &operator[](uint_fast64_t index);
   void reset(bool num = true);
+};
+
+class primes : private bitmap {
+  std::fstream cache;
+  bitmap::boolean &operator[](uint_fast64_t index) = delete;
+  void reset(bool num = true);
+
+public:
+  primes(uint_fast64_t n);
+  ~primes();
 };
 
 class sieve {
@@ -49,6 +63,6 @@ class sieve {
   sieve &operator<<(const uint_fast64_t n);
 
 public:
-  sieve(uint_fast64_t n);
+  sieve(uint_fast64_t n, std::ostream &out = std::cout);
 };
 } // namespace prime

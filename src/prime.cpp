@@ -2,16 +2,17 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <ostream>
 #include <vector>
 
-prime::sieve::sieve(uint_fast64_t n) : out(std::cout) {
-  sieve_linear(n);
-  sieve_linear_skip(n);
+prime::sieve::sieve(uint_fast64_t n, std::ostream &out) : out(out) {
+  // sieve_linear(n);
+  // sieve_linear_skip(n);
   sieve_segmented(n);
-  sieve_segmented_wheel(n);
-  sieve_atkhin(n);
+  // sieve_segmented_wheel(n);
+  // sieve_atkhin(n);
 }
 
 prime::sieve &prime::sieve::operator<<(const uint_fast64_t n) { return *this; }
@@ -85,6 +86,19 @@ void prime::bitmap::reset(bool num) {
 }
 
 prime::bitmap::~bitmap() { delete[] bits; }
+
+prime::primes::primes(uint_fast64_t n) : bitmap(n, false) {
+  cache = std::fstream(".cache.bin",
+                       std::ios::in | std::ios::out | std::ios::binary);
+  if (cache.is_open()) {
+    cache.write(bits, size);
+  } else {
+    std::cerr << "Cannot create cache file. Check permissions." << std::endl;
+    exit(1);
+  }
+}
+
+prime::primes::~primes() { cache.close(); }
 
 static bool isNotDivide(uint_fast64_t &i,
                         const std::vector<uint_fast64_t> &bazis) {
