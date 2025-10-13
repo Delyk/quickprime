@@ -55,20 +55,9 @@ prime::bitmap::boolean &prime::bitmap::boolean::operator=(bool bit) {
   return *this;
 }
 
-prime::bitmap::bitmap(uint_fast64_t size, bool fill) {
+prime::bitmap::bitmap(uint_fast64_t size, bool fill) : bits(nullptr) {
   this->size = size / 8 + 1;
-  bits = new char[this->size];
-
-  char num;
-  if (fill) {
-    num = -1;
-  } else {
-    num = 0;
-  }
-
-  for (uint_fast64_t i = 0; i < this->size; i++) {
-    bits[i] = num;
-  }
+  init_bits(size, fill);
 }
 
 prime::bitmap::boolean &prime::bitmap::operator[](uint_fast64_t index) {
@@ -85,6 +74,25 @@ void prime::bitmap::reset(bool num) {
   }
 }
 
+void prime::bitmap::init_bits(uint_fast64_t size, bool fill) {
+  if (bits) {
+    delete[] bits;
+  }
+  uint_fast64_t tmp_sz = size / 8 + 1;
+  bits = new char[tmp_sz];
+
+  char num;
+  if (fill) {
+    num = -1;
+  } else {
+    num = 0;
+  }
+
+  for (uint_fast64_t i = 0; i < tmp_sz; i++) {
+    bits[i] = num;
+  }
+}
+
 prime::bitmap::~bitmap() { delete[] bits; }
 
 prime::primes::primes(uint_fast64_t n) : bitmap(n, false) {
@@ -92,10 +100,46 @@ prime::primes::primes(uint_fast64_t n) : bitmap(n, false) {
                        std::ios::in | std::ios::out | std::ios::binary);
   if (cache.is_open()) {
     cache.write(bits, size);
+    init_bits(std::sqrt(n), false);
   } else {
     std::cerr << "Cannot create cache file. Check permissions." << std::endl;
     exit(1);
   }
+}
+
+prime::primes::Iterator::Iterator(prime::primes::Iterator::pointer ptr,
+                                  uint_fast64_t size) {
+  this->m_ptr = ptr;
+  this->size = size;
+}
+
+prime::primes::Iterator::reference prime::primes::Iterator::operator*() {
+  return *(this->m_ptr);
+}
+
+prime::primes::Iterator::pointer prime::primes::Iterator::operator->() {
+  return this->m_ptr;
+}
+
+prime::primes::Iterator &prime::primes::Iterator::operator++() {
+  if (m_ptr < m_ptr + (size - 1)) {
+    m_ptr++;
+  }
+  return *this;
+}
+
+prime::primes::Iterator prime::primes::Iterator::operator++(int t) {
+  Iterator tmp = *this;
+  ++(*this);
+  return tmp;
+}
+
+prime::primes::Iterator prime::primes::begin() const {
+  return Iterator(bits, size);
+}
+
+prime::primes::Iterator prime::primes::end() const {
+  return Iterator(&bits[size - 1], 0);
 }
 
 prime::primes::~primes() { cache.close(); }

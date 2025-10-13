@@ -6,6 +6,7 @@
 #include <fstream>
 #include <initializer_list>
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include <ostream>
 #include <thread>
@@ -13,6 +14,7 @@
 namespace prime {
 
 class bitmap {
+
 protected:
   class boolean {
     char *byte;
@@ -30,6 +32,7 @@ protected:
   boolean bit;
   char *bits;
   uint_fast64_t size;
+  void init_bits(uint_fast64_t size, bool fill);
 
 public:
   bitmap(uint_fast64_t size, bool fill = true);
@@ -43,9 +46,28 @@ class primes : private bitmap {
   bitmap::boolean &operator[](uint_fast64_t index) = delete;
   void reset(bool num = true);
 
+  class Iterator {
+    using iterator_category = std::forward_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = char &;
+    using pointer = char *;
+    using reference = char &;
+    pointer m_ptr;
+    uint_fast64_t size;
+
+  public:
+    Iterator(pointer, uint_fast64_t);
+    reference operator*();
+    pointer operator->();
+    Iterator &operator++();
+    Iterator operator++(int);
+  };
+
 public:
   primes(uint_fast64_t n);
   ~primes();
+  Iterator begin() const;
+  Iterator end() const;
 };
 
 class sieve {
