@@ -15,6 +15,8 @@ namespace prime {
 
 class bitmap {
 
+  uint_fast64_t size;
+
 protected:
   class boolean {
     char *byte;
@@ -31,60 +33,54 @@ protected:
 
   boolean bit;
   char *bits;
-  uint_fast64_t size;
   void init_bits(uint_fast64_t size, bool fill);
 
 public:
-  bitmap(uint_fast64_t size, bool fill = true);
+  bitmap(uint_fast64_t size = 0, bool fill = true);
   ~bitmap();
   boolean &operator[](uint_fast64_t index);
   void reset(bool num = true);
 };
 
 class primes : private bitmap {
-  std::fstream cache;
-  bitmap::boolean &operator[](uint_fast64_t index) = delete;
-  void reset(bool num = true);
+  boolean &operator[](uint_fast64_t index) = delete;
+  uint_fast64_t size;
+  unsigned true_size;
+  bool has_num;
 
   class Iterator {
     using iterator_category = std::forward_iterator_tag;
     using difference_type = std::ptrdiff_t;
     using value_type = char &;
     using pointer = char *;
-    using reference = char &;
+    using reference = uint_fast64_t;
     pointer m_ptr;
     uint_fast64_t size;
+    uint_fast64_t byte;
+    uint_fast64_t offset;
 
   public:
-    Iterator(pointer, uint_fast64_t);
+    Iterator(pointer, uint_fast64_t, bool);
     reference operator*();
-    pointer operator->();
+    bool operator!=(Iterator &) const;
     Iterator &operator++();
     Iterator operator++(int);
   };
 
 public:
   primes(uint_fast64_t n);
-  ~primes();
+  primes &operator=(std::vector<uint_fast64_t>);
+  primes &operator=(const primes &);
+  void push_back(uint_fast64_t n);
+  void print() const;
   Iterator begin() const;
   Iterator end() const;
+  ~primes();
 };
 
-class sieve {
-
-  std::ostream &out;
-  void output(std::vector<uint_fast64_t>::iterator begin,
-              std::vector<uint_fast64_t>::iterator end);
-
-  std::vector<uint_fast64_t> sieve_linear(uint_fast64_t n);
-  std::vector<uint_fast64_t> sieve_linear_skip(uint_fast64_t n);
-  void sieve_segmented(uint_fast64_t n);
-  void sieve_segmented_wheel(uint_fast64_t n);
-  void sieve_atkhin(uint_fast64_t n);
-
-  sieve &operator<<(const uint_fast64_t n);
-
-public:
-  sieve(uint_fast64_t n, std::ostream &out = std::cout);
-};
+std::vector<uint_fast64_t> sieve_linear(uint_fast64_t n);
+std::vector<uint_fast64_t> sieve_linear_skip(uint_fast64_t n);
+void sieve_segmented(uint_fast64_t n);
+void sieve_segmented_wheel(uint_fast64_t n);
+void sieve_atkhin(uint_fast64_t n);
 } // namespace prime
