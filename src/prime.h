@@ -46,7 +46,7 @@ class primes : private bitmap {
   boolean &operator[](uint_fast64_t index) = delete;
   uint_fast64_t size;
   unsigned true_size;
-  bool has_num;
+  uint_fast64_t has_num;
 
   class Iterator {
     using iterator_category = std::forward_iterator_tag;
@@ -58,17 +58,21 @@ class primes : private bitmap {
     uint_fast64_t size;
     uint_fast64_t byte;
     uint_fast64_t offset;
+    uint_fast64_t have_num;
 
   public:
-    Iterator(pointer, uint_fast64_t, bool);
+    Iterator(pointer, uint_fast64_t, uint_fast64_t);
     reference operator*();
     bool operator!=(Iterator &) const;
     Iterator &operator++();
     Iterator operator++(int);
   };
 
+  void debug_print();
+
 public:
   primes(uint_fast64_t n);
+  primes(std::initializer_list<uint_fast64_t> list, uint_fast64_t n);
   primes &operator=(std::vector<uint_fast64_t>);
   primes &operator=(const primes &);
   void push_back(uint_fast64_t n);
@@ -78,8 +82,8 @@ public:
   ~primes();
 };
 
-std::vector<uint_fast64_t> sieve_linear(uint_fast64_t n);
-std::vector<uint_fast64_t> sieve_linear_skip(uint_fast64_t n);
+primes sieve_linear(uint_fast64_t n);
+primes sieve_linear_skip(uint_fast64_t n);
 void sieve_segmented(uint_fast64_t n);
 void sieve_segmented_wheel(uint_fast64_t n);
 void sieve_atkhin(uint_fast64_t n);

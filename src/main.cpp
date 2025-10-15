@@ -1,11 +1,23 @@
 #include "prime.h"
+#include <chrono>
+#include <iomanip>
+#include <ratio>
 #define COUNT 1
-#define TEST_NUM 30
+#define TEST_NUM 1000000
 using namespace prime;
 using namespace std;
 
 int main() {
-  sieve_segmented(TEST_NUM);
+  chrono::duration<double, std::milli> elapsed_t{0};
+  for (int i = 0; i < COUNT; i++) {
+    auto start = chrono::high_resolution_clock::now();
+    sieve_linear(TEST_NUM);
+    auto end = chrono::high_resolution_clock::now();
+    elapsed_t += end - start;
+  }
+  elapsed_t /= COUNT;
+  std::cout << fixed << setprecision(3) << "Time: " << elapsed_t.count()
+            << " ms\n";
 
   return 0;
 }
