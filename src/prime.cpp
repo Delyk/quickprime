@@ -92,6 +92,14 @@ prime::primes::primes(uint_fast64_t n) : size(n), has_num(false) {
   init_bits(true_size, has_num);
 }
 
+prime::primes::primes(const primes &pr)
+    : size(pr.size), true_size(pr.true_size), has_num(pr.has_num) {
+  bits = new char[true_size];
+  for (uint_fast64_t i = 0; i < true_size; i++) {
+    this->bits[i] = pr.bits[i];
+  }
+}
+
 prime::primes::primes(std::initializer_list<uint_fast64_t> list,
                       uint_fast64_t n)
     : primes(n) {
@@ -143,18 +151,19 @@ prime::primes::Iterator prime::primes::Iterator::operator++(int t) {
 }
 
 bool prime::primes::Iterator::operator!=(Iterator &it) const {
-  return (byte * 8 + offset) != 0;
+  return to_num(byte, offset) != 0;
 }
 
 void prime::primes::push_back(uint_fast64_t n) {
-  if (n >= size) {
-    std::cerr << "Error. Array overflow." << std::endl;
+  if (n > size) {
+    std::cerr << "Error. Array overflow. " << n << " > " << size << std::endl;
     exit(1);
   }
   uint_fast64_t b = n / 8;
   unsigned char offset = n % 8;
   bits[b] |= (1 << offset);
   has_num = n;
+  std::cout << n << std::endl;
   // debug_print();
 }
 
@@ -174,13 +183,33 @@ prime::primes &prime::primes::operator=(std::vector<uint_fast64_t> pr) {
 }
 
 prime::primes &prime::primes::operator=(const primes &pr) {
-  this->size = pr.size;
-  this->true_size = pr.true_size;
   this->has_num = pr.has_num;
-  bits = new char[true_size];
-  for (uint_fast64_t i = 0; i < true_size; i++) {
+  if (this->size < pr.size) {
+    this->size = pr.size;
+    this->true_size = pr.true_size;
+    delete[] bits;
+    bits = new char[true_size];
+  }
+  for (uint_fast64_t i = 0; i < pr.true_size; i++) {
     bits[i] = pr.bits[i];
   }
+  return *this;
+}
+
+prime::primes &prime::primes::operator=(primes &&pr) noexcept {
+  if (this->size < pr.size) {
+    this->size = pr.size;
+    this->true_size = pr.true_size;
+  }
+  this->has_num = pr.has_num;
+  for (uint_fast64_t i = 0; i < pr.true_size; i++) {
+    this->bits[i] = pr.bits[i];
+  }
+
+  pr.bits = nullptr;
+  pr.size = 0;
+  pr.true_size = 0;
+  pr.has_num = 0;
   return *this;
 }
 
@@ -299,7 +328,8 @@ prime::primes prime::sieve_linear_skip(uint_fast64_t n) {
       lp[i] = num;
       pr.push_back(num);
     }
-    for (auto p = pr.begin(); *p <= lp[i] && *p * num <= n; p++) {
+    for (auto p = pr.begin(); *p <= lp[i] && *p * num <= n && p != pr.end();
+         p++) {
       lp[(*p * num) / 2 - 1] = num;
     }
   }
@@ -353,7 +383,7 @@ void prime::sieve_segmented(uint_fast64_t n) {
     }
     lp.reset(true);
   }
-  pr.print();
+  // pr.print();
 }
 
 void prime::sieve_segmented_wheel(uint_fast64_t n) {

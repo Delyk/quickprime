@@ -64,6 +64,9 @@ class primes : private bitmap {
     Iterator(pointer, uint_fast64_t, uint_fast64_t);
     reference operator*();
     bool operator!=(Iterator &) const;
+    friend bool operator!=(Iterator &lhs, Iterator &&rhs) {
+      return lhs.byte * 8 + lhs.offset != 0;
+    }
     Iterator &operator++();
     Iterator operator++(int);
   };
@@ -72,9 +75,11 @@ class primes : private bitmap {
 
 public:
   primes(uint_fast64_t n);
+  primes(const primes &);
   primes(std::initializer_list<uint_fast64_t> list, uint_fast64_t n);
   primes &operator=(std::vector<uint_fast64_t>);
   primes &operator=(const primes &);
+  primes &operator=(primes &&) noexcept;
   void push_back(uint_fast64_t n);
   void print() const;
   Iterator begin() const;
