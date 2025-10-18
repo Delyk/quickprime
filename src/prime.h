@@ -8,10 +8,23 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <ostream>
+#include <queue>
 #include <thread>
 #include <vector>
 namespace prime {
+
+class primes_queque {
+  std::queue<uint_fast64_t> q;
+  std::mutex mtx;
+
+public:
+  void push(uint_fast64_t val);
+  bool pop(uint_fast64_t &val);
+};
+
+void output(primes_queque &buffer);
 
 class bitmap {
 
@@ -92,4 +105,6 @@ primes sieve_linear_skip(uint_fast64_t n);
 void sieve_segmented(uint_fast64_t n);
 void sieve_segmented_wheel(uint_fast64_t n);
 void sieve_atkhin(uint_fast64_t n);
+void sieve_segmented(uint_fast64_t n, primes_queque &buf);
+
 } // namespace prime

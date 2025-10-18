@@ -6,8 +6,31 @@
 #include <fstream>
 #include <initializer_list>
 #include <iostream>
+#include <mutex>
 #include <ostream>
 #include <vector>
+
+void prime::primes_queque::push(uint_fast64_t val) {
+  std::lock_guard<std::mutex> lock(mtx);
+  q.push(val);
+}
+
+bool prime::primes_queque::pop(uint_fast64_t &val) {
+  std::lock_guard<std::mutex> lock(mtx);
+  if (!q.empty()) {
+    val = q.front();
+    q.pop();
+    return true;
+  }
+  return false;
+}
+
+void prime::output(primes_queque &buffer) {
+  uint_fast64_t val;
+  while (buffer.pop(val)) {
+    std::cout << val << std::endl;
+  }
+}
 
 static inline uint_fast64_t to_num(uint_fast64_t byte, uint_fast64_t offset) {
   return byte * 8 + offset;
@@ -163,7 +186,7 @@ void prime::primes::push_back(uint_fast64_t n) {
   unsigned char offset = n % 8;
   bits[b] |= (1 << offset);
   has_num = n;
-  std::cout << n << std::endl;
+  // std::cout << n << std::endl;
   // debug_print();
 }
 
@@ -499,4 +522,52 @@ void prime::sieve_atkhin(uint_fast64_t n) {
     }
   }
   primes.print();
+}
+void prime::sieve_segmented(uint_fast64_t n, primes_queque &buf) {
+  if (n < 2) {
+    return;
+  }
+
+  uint_fast64_t lim = std::sqrt(n);
+  primes pr(n);
+  bitmap lp(lim + 1, true);
+  pr = sieve_linear(lim);
+
+  uint_fast64_t low = lim;
+  uint_fast64_t high = 2 * lim - 1;
+  if (high > n) {
+    high = n;
+  }
+
+  while (low <= n) {
+    for (auto i : pr) {
+
+      uint_fast64_t start = (low + i - 1) / i * i;
+      if (start < low) {
+        start = i * i;
+      }
+      if (start < low) {
+        start = low;
+      }
+
+      for (std::size_t j = start; j <= high; j += i) {
+        lp[j - low] = false;
+      }
+    }
+
+    for (std::size_t i = low; i <= high; i++) {
+      if (lp[i - low]) {
+        pr.push_back(i);
+        buf.push(i);
+      }
+    }
+
+    low += lim;
+    high += lim;
+    if (high > n) {
+      high = n;
+    }
+    lp.reset(true);
+  }
+  // pr.print();
 }
