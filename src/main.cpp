@@ -2,7 +2,6 @@
 #include <chrono>
 #include <iomanip>
 #include <ratio>
-#include <thread>
 #define COUNT 1
 #define TEST_NUM 1000
 #define million 1000000
@@ -14,10 +13,7 @@ int main() {
   primes_queque buf;
   for (int i = 0; i < COUNT; i++) {
     auto start = chrono::high_resolution_clock::now();
-    std::thread gen([&]() { sieve_segmented(million, buf); });
-    std::thread out(output, std::ref(buf));
-    gen.join();
-    out.join();
+    sieve_segmented(million);
     auto end = chrono::high_resolution_clock::now();
     elapsed_t += end - start;
   }

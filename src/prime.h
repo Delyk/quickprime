@@ -1,5 +1,6 @@
 #pragma once
 
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -18,10 +19,11 @@ namespace prime {
 class primes_queque {
   std::queue<uint_fast64_t> q;
   std::mutex mtx;
+  std::condition_variable v;
 
 public:
   void push(uint_fast64_t val);
-  bool pop(uint_fast64_t &val);
+  uint_fast64_t pop();
 };
 
 void output(primes_queque &buffer);

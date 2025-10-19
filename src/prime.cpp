@@ -1,4 +1,5 @@
 #include "prime.h"
+#include <atomic>
 #include <bitset>
 #include <cmath>
 #include <cstddef>
@@ -8,26 +9,34 @@
 #include <iostream>
 #include <mutex>
 #include <ostream>
+#include <thread>
 #include <vector>
+
+std::atomic<bool> finished = false;
 
 void prime::primes_queque::push(uint_fast64_t val) {
   std::lock_guard<std::mutex> lock(mtx);
   q.push(val);
+  v.notify_one();
 }
 
-bool prime::primes_queque::pop(uint_fast64_t &val) {
-  std::lock_guard<std::mutex> lock(mtx);
-  if (!q.empty()) {
-    val = q.front();
-    q.pop();
-    return true;
+uint_fast64_t prime::primes_queque::pop() {
+  std::unique_lock<std::mutex> lock(mtx);
+  v.wait(lock, [&] { return !q.empty() || finished; });
+  if (q.empty() && finished) {
+    return 0;
   }
-  return false;
+  uint_fast64_t val = q.front();
+  q.pop();
+  return val;
 }
 
 void prime::output(primes_queque &buffer) {
-  uint_fast64_t val;
-  while (buffer.pop(val)) {
+  while (true) {
+    uint_fast64_t val = buffer.pop();
+    if (val == 0) {
+      break;
+    }
     std::cout << val << std::endl;
   }
 }
@@ -367,6 +376,8 @@ void prime::sieve_segmented(uint_fast64_t n) {
   }
 
   uint_fast64_t lim = std::sqrt(n);
+  primes_queque buf;
+  std::thread out(output, std::ref(buf));
   primes pr(n);
   bitmap lp(lim + 1, true);
   pr = sieve_linear(lim);
@@ -396,6 +407,7 @@ void prime::sieve_segmented(uint_fast64_t n) {
     for (std::size_t i = low; i <= high; i++) {
       if (lp[i - low]) {
         pr.push_back(i);
+        buf.push(i);
       }
     }
 
@@ -406,6 +418,8 @@ void prime::sieve_segmented(uint_fast64_t n) {
     }
     lp.reset(true);
   }
+  finished.store(true);
+  out.join();
   // pr.print();
 }
 
