@@ -22,7 +22,7 @@ void prime::primes_queque::push(uint_fast64_t val) {
 
 uint_fast64_t prime::primes_queque::pop() {
   std::unique_lock<std::mutex> lock(mtx);
-  v.wait(lock, [&] { return !q.empty() || finished; });
+  v.wait(lock, [&] { return !q.empty() || finished.load(); });
   if (q.empty() && finished) {
     return 0;
   }
@@ -31,10 +31,15 @@ uint_fast64_t prime::primes_queque::pop() {
   return val;
 }
 
+void prime::primes_queque::end() {
+  finished.store(true);
+  v.notify_one();
+}
+
 void prime::output(primes_queque &buffer) {
   while (true) {
     uint_fast64_t val = buffer.pop();
-    if (val == 0) {
+    if (val == 0 && finished.load()) {
       break;
     }
     std::cout << val << std::endl;
@@ -418,7 +423,7 @@ void prime::sieve_segmented(uint_fast64_t n) {
     }
     lp.reset(true);
   }
-  finished.store(true);
+  buf.end();
   out.join();
   // pr.print();
 }
@@ -536,52 +541,4 @@ void prime::sieve_atkhin(uint_fast64_t n) {
     }
   }
   primes.print();
-}
-void prime::sieve_segmented(uint_fast64_t n, primes_queque &buf) {
-  if (n < 2) {
-    return;
-  }
-
-  uint_fast64_t lim = std::sqrt(n);
-  primes pr(n);
-  bitmap lp(lim + 1, true);
-  pr = sieve_linear(lim);
-
-  uint_fast64_t low = lim;
-  uint_fast64_t high = 2 * lim - 1;
-  if (high > n) {
-    high = n;
-  }
-
-  while (low <= n) {
-    for (auto i : pr) {
-
-      uint_fast64_t start = (low + i - 1) / i * i;
-      if (start < low) {
-        start = i * i;
-      }
-      if (start < low) {
-        start = low;
-      }
-
-      for (std::size_t j = start; j <= high; j += i) {
-        lp[j - low] = false;
-      }
-    }
-
-    for (std::size_t i = low; i <= high; i++) {
-      if (lp[i - low]) {
-        pr.push_back(i);
-        buf.push(i);
-      }
-    }
-
-    low += lim;
-    high += lim;
-    if (high > n) {
-      high = n;
-    }
-    lp.reset(true);
-  }
-  // pr.print();
 }

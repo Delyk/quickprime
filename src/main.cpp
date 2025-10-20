@@ -13,7 +13,7 @@ int main() {
   primes_queque buf;
   for (int i = 0; i < COUNT; i++) {
     auto start = chrono::high_resolution_clock::now();
-    sieve_segmented(million);
+    sieve_segmented(TEST_NUM);
     auto end = chrono::high_resolution_clock::now();
     elapsed_t += end - start;
   }

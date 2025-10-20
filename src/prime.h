@@ -24,6 +24,7 @@ class primes_queque {
 public:
   void push(uint_fast64_t val);
   uint_fast64_t pop();
+  void end();
 };
 
 void output(primes_queque &buffer);
@@ -107,6 +108,5 @@ primes sieve_linear_skip(uint_fast64_t n);
 void sieve_segmented(uint_fast64_t n);
 void sieve_segmented_wheel(uint_fast64_t n);
 void sieve_atkhin(uint_fast64_t n);
-void sieve_segmented(uint_fast64_t n, primes_queque &buf);
 
 } // namespace prime
