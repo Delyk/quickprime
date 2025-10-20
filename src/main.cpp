@@ -3,8 +3,7 @@
 #include <iomanip>
 #include <ratio>
 #define COUNT 1
-#define TEST_NUM 1000
-#define million 1000000
+#define TEST_NUM 1000000
 using namespace prime;
 using namespace std;
 
@@ -13,7 +12,9 @@ int main() {
   primes_queque buf;
   for (int i = 0; i < COUNT; i++) {
     auto start = chrono::high_resolution_clock::now();
+    // sieve_linear_simple(TEST_NUM);
     sieve_segmented(TEST_NUM);
+    // sieve_atkhin(TEST_NUM);
     auto end = chrono::high_resolution_clock::now();
     elapsed_t += end - start;
   }

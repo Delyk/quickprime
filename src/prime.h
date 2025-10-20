@@ -93,6 +93,7 @@ public:
   primes(uint_fast64_t n);
   primes(const primes &);
   primes(std::initializer_list<uint_fast64_t> list, uint_fast64_t n);
+  primes(std::string cache = ".cache.bin");
   primes &operator=(std::vector<uint_fast64_t>);
   primes &operator=(const primes &);
   primes &operator=(primes &&) noexcept;
@@ -104,9 +105,8 @@ public:
 };
 
 primes sieve_linear(uint_fast64_t n);
-primes sieve_linear_skip(uint_fast64_t n);
+void sieve_linear_simple(uint_fast64_t n);
 void sieve_segmented(uint_fast64_t n);
-void sieve_segmented_wheel(uint_fast64_t n);
 void sieve_atkhin(uint_fast64_t n);
 
 } // namespace prime
