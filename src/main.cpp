@@ -2,8 +2,8 @@
 #include <chrono>
 #include <iomanip>
 #include <ratio>
-#define COUNT 1
-#define TEST_NUM 1000000
+#define COUNT 3
+#define TEST_NUM 100
 using namespace prime;
 using namespace std;
 

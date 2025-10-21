@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <initializer_list>
 #include <iostream>
@@ -124,9 +125,28 @@ void prime::bitmap::init_bits(uint_fast64_t size, bool fill) {
 
 prime::bitmap::~bitmap() { delete[] bits; }
 
-prime::primes::primes(uint_fast64_t n) : size(n), has_num(false) {
+prime::primes::primes(uint_fast64_t n, std::string c)
+    : size(n), has_num(false) {
   true_size = size / 8 + 1;
   init_bits(true_size, has_num);
+  if (std::filesystem::exists(c)) {
+    std::ifstream cache(c, std::ios::in);
+    if (cache.is_open()) {
+      char ch;
+      uint_fast64_t i = 0;
+      while (cache.get(ch)) {
+        if (i >= true_size) {
+          break;
+        }
+        bits[i] = ch;
+        i++;
+      }
+      if (i >= true_size) {
+        write_cache = false;
+        find_last_prime();
+      }
+    }
+  }
 }
 
 prime::primes::primes(const primes &pr)
@@ -140,8 +160,10 @@ prime::primes::primes(const primes &pr)
 prime::primes::primes(std::initializer_list<uint_fast64_t> list,
                       uint_fast64_t n)
     : primes(n) {
-  for (uint_fast64_t i : list) {
-    this->push_back(i);
+  if (!has_num) {
+    for (uint_fast64_t i : list) {
+      this->push_back(i);
+    }
   }
 }
 
@@ -212,15 +234,9 @@ prime::primes::Iterator prime::primes::end() const {
   return Iterator(nullptr, 0, false);
 }
 
-prime::primes &prime::primes::operator=(std::vector<uint_fast64_t> pr) {
-  for (uint_fast64_t i : pr) {
-    this->push_back(i);
-  }
-  return *this;
-}
-
-prime::primes &prime::primes::operator=(const primes &pr) {
+prime::primes &prime::primes::operator=(primes &pr) {
   this->has_num = pr.has_num;
+  pr.write_cache = false;
   if (this->size < pr.size) {
     this->size = pr.size;
     this->true_size = pr.true_size;
@@ -247,6 +263,7 @@ prime::primes &prime::primes::operator=(primes &&pr) noexcept {
   pr.size = 0;
   pr.true_size = 0;
   pr.has_num = 0;
+  pr.write_cache = false;
   return *this;
 }
 
@@ -254,6 +271,7 @@ void prime::primes::print() const {
   for (uint_fast64_t i : *this) {
     std::cout << i << std::endl;
   }
+  std::cout << "From cache" << std::endl;
 }
 
 void prime::primes::debug_print() {
@@ -264,16 +282,36 @@ void prime::primes::debug_print() {
   std::cout << std::endl;
 }
 
+uint_fast64_t prime::primes::getPrime() const { return this->has_num; }
+
+void prime::primes::no_cache() { write_cache = false; }
+
+void prime::primes::find_last_prime() {
+  for (int_fast64_t i = true_size - 1; i != 0; i--) {
+    for (int offset = 7; offset >= 0; offset--) {
+      if (bits[i] & (1 << offset)) {
+        has_num = to_num(i, offset);
+        return;
+      }
+    }
+  }
+}
+
 prime::primes::~primes() {
 
-  std::ofstream cache =
-      std::ofstream(".cache.bin", std::ios::out | std::ios::binary);
+  if (write_cache) {
+    std::cout << "Cache write" << std::endl;
+    std::ofstream cache =
+        std::ofstream(".cache.bin", std::ios::out | std::ios::binary);
 
-  if (cache.is_open()) {
-    cache.write(bits, true_size);
-    cache.close();
+    if (cache.is_open()) {
+      cache.write(bits, true_size);
+      cache.close();
+    } else {
+      std::cerr << "Cannot create cache file. Check permissions." << std::endl;
+    }
   } else {
-    std::cerr << "Cannot create cache file. Check permissions." << std::endl;
+    std::cout << "Cache no write" << std::endl;
   }
 }
 
@@ -281,9 +319,13 @@ void prime::sieve_linear_simple(uint_fast64_t n) {
   if (n < 2) {
     return;
   }
+  primes pr{n};
+  if (pr.getPrime()) {
+    pr.print();
+    return;
+  }
   primes_queque buf;
   std::thread out(output, std::ref(buf));
-  primes pr{n};
   std::vector<uint_fast64_t> lp(n + 1, 0);
 
   for (std::size_t i = 2; i <= n; i++) {
@@ -321,6 +363,7 @@ prime::primes prime::sieve_linear(uint_fast64_t n) {
     }
   }
 
+  pr.no_cache();
   pr.print();
   return pr;
 }
@@ -332,6 +375,10 @@ void prime::sieve_segmented(uint_fast64_t n) {
 
   uint_fast64_t lim = std::sqrt(n);
   primes pr(n);
+  if (pr.getPrime()) {
+    pr.print();
+    return;
+  }
   bitmap lp(lim + 1, true);
   pr = sieve_linear(lim);
   primes_queque buf;
@@ -377,16 +424,27 @@ void prime::sieve_segmented(uint_fast64_t n) {
   out.join();
 }
 
+static void sieve_atkhin_tail() {
+  std::vector<uint_fast64_t> v{2, 3, 5};
+  for (auto i : v) {
+    std::cout << i << std::endl;
+  }
+}
+
 void prime::sieve_atkhin(uint_fast64_t n) {
   if (n < 2) {
     return;
   }
+  primes primes{{2, 3, 5}, n};
+  if (primes.getPrime() && primes.getPrime() != 5) {
+    primes.print();
+    return;
+  }
   primes_queque buf;
   std::thread out(output, std::ref(buf));
-  primes primes{{2, 3, 5}, n};
-  primes.print();
   bitmap nums(n, false);
   uint_fast64_t lim = std::sqrt(n);
+  sieve_atkhin_tail();
   if (lim >= 3)
     nums[2] = nums[3] = true;
 

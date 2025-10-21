@@ -63,6 +63,7 @@ class primes : private bitmap {
   uint_fast64_t size;
   unsigned true_size;
   uint_fast64_t has_num;
+  bool write_cache = true;
 
   class Iterator {
     using iterator_category = std::forward_iterator_tag;
@@ -88,19 +89,20 @@ class primes : private bitmap {
   };
 
   void debug_print();
+  void find_last_prime();
 
 public:
-  primes(uint_fast64_t n);
+  primes(uint_fast64_t n, std::string = ".cache.bin");
   primes(const primes &);
   primes(std::initializer_list<uint_fast64_t> list, uint_fast64_t n);
-  primes(std::string cache = ".cache.bin");
-  primes &operator=(std::vector<uint_fast64_t>);
-  primes &operator=(const primes &);
+  primes &operator=(primes &);
   primes &operator=(primes &&) noexcept;
   void push_back(uint_fast64_t n);
   void print() const;
   Iterator begin() const;
   Iterator end() const;
+  uint_fast64_t getPrime() const;
+  void no_cache();
   ~primes();
 };
 
