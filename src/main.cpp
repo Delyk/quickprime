@@ -1,26 +1,37 @@
 #include "prime.h"
 #include <chrono>
+#include <cstdint>
+#include <cstdlib>
 #include <iomanip>
 #include <ratio>
 #define COUNT 3
-#define TEST_NUM 100
+#define TEST_NUM 300
 using namespace prime;
 using namespace std;
 
-int main() {
-  chrono::duration<double, std::milli> elapsed_t{0};
-  primes_queque buf;
-  for (int i = 0; i < COUNT; i++) {
-    auto start = chrono::high_resolution_clock::now();
-    // sieve_linear_simple(TEST_NUM);
-    sieve_segmented(TEST_NUM);
-    // sieve_atkhin(TEST_NUM);
-    auto end = chrono::high_resolution_clock::now();
-    elapsed_t += end - start;
+int main(int argc, char *argv[]) {
+  uint_fast64_t n;
+  bool stat = true;
+  if (argc < 2) {
+    cerr << "Usage: quickprime [number] [--nostat]" << endl;
+    return 1;
   }
-  elapsed_t /= COUNT;
-  std::cout << fixed << setprecision(3) << "Avg: " << elapsed_t.count()
-            << " ms\n";
+  n = atoi(argv[1]);
+
+  if (!n) {
+    cerr << "Usage: quickprime [number] [--nostat]" << endl;
+    return 1;
+  }
+  if (argc == 3) {
+    if (std::string(argv[2]) == "--nostat") {
+      stat = false;
+    } else {
+      cerr << "Usage: quickprime [number] [--nostat]" << endl;
+      return 1;
+    }
+  }
+
+  generator(n, stat);
 
   return 0;
 }

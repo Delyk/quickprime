@@ -1,12 +1,15 @@
 #include "prime.h"
 #include <atomic>
 #include <bitset>
+#include <chrono>
+#include <climits>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
+#include <iomanip>
 #include <iostream>
 #include <mutex>
 #include <ostream>
@@ -222,8 +225,6 @@ void prime::primes::push_back(uint_fast64_t n) {
   unsigned char offset = n % 8;
   bits[b] |= (1 << offset);
   has_num = n;
-  // std::cout << n << std::endl;
-  // debug_print();
 }
 
 prime::primes::Iterator prime::primes::begin() const {
@@ -271,7 +272,6 @@ void prime::primes::print() const {
   for (uint_fast64_t i : *this) {
     std::cout << i << std::endl;
   }
-  std::cout << "From cache" << std::endl;
 }
 
 void prime::primes::debug_print() {
@@ -291,6 +291,10 @@ void prime::primes::find_last_prime() {
     for (int offset = 7; offset >= 0; offset--) {
       if (bits[i] & (1 << offset)) {
         has_num = to_num(i, offset);
+        if (has_num > size) {
+          has_num = 0;
+          continue;
+        }
         return;
       }
     }
@@ -298,9 +302,7 @@ void prime::primes::find_last_prime() {
 }
 
 prime::primes::~primes() {
-
   if (write_cache) {
-    std::cout << "Cache write" << std::endl;
     std::ofstream cache =
         std::ofstream(".cache.bin", std::ios::out | std::ios::binary);
 
@@ -310,118 +312,7 @@ prime::primes::~primes() {
     } else {
       std::cerr << "Cannot create cache file. Check permissions." << std::endl;
     }
-  } else {
-    std::cout << "Cache no write" << std::endl;
   }
-}
-
-void prime::sieve_linear_simple(uint_fast64_t n) {
-  if (n < 2) {
-    return;
-  }
-  primes pr{n};
-  if (pr.getPrime()) {
-    pr.print();
-    return;
-  }
-  primes_queque buf;
-  std::thread out(output, std::ref(buf));
-  std::vector<uint_fast64_t> lp(n + 1, 0);
-
-  for (std::size_t i = 2; i <= n; i++) {
-    if (!lp[i]) {
-      lp[i] = i;
-      pr.push_back(i);
-      buf.push(i);
-    }
-
-    for (auto p = pr.begin(); *p <= lp[i] && *p * i <= n && p != pr.end();
-         p++) {
-      lp[*p * i] = *p;
-    }
-  }
-  buf.end();
-  out.join();
-}
-
-prime::primes prime::sieve_linear(uint_fast64_t n) {
-  if (n < 2) {
-    return primes{0};
-  }
-  primes pr{n};
-  std::vector<uint_fast64_t> lp(n + 1, 0);
-
-  for (std::size_t i = 2; i <= n; i++) {
-    if (!lp[i]) {
-      lp[i] = i;
-      pr.push_back(i);
-    }
-
-    for (auto p = pr.begin(); *p <= lp[i] && *p * i <= n && p != pr.end();
-         p++) {
-      lp[*p * i] = *p;
-    }
-  }
-
-  pr.no_cache();
-  pr.print();
-  return pr;
-}
-
-void prime::sieve_segmented(uint_fast64_t n) {
-  if (n < 2) {
-    return;
-  }
-
-  uint_fast64_t lim = std::sqrt(n);
-  primes pr(n);
-  if (pr.getPrime()) {
-    pr.print();
-    return;
-  }
-  bitmap lp(lim + 1, true);
-  pr = sieve_linear(lim);
-  primes_queque buf;
-  std::thread out(output, std::ref(buf));
-
-  uint_fast64_t low = lim;
-  uint_fast64_t high = 2 * lim - 1;
-  if (high > n) {
-    high = n;
-  }
-
-  while (low <= n) {
-    for (auto i : pr) {
-
-      uint_fast64_t start = (low + i - 1) / i * i;
-      if (start < low) {
-        start = i * i;
-      }
-      if (start < low) {
-        start = low;
-      }
-
-      for (std::size_t j = start; j <= high; j += i) {
-        lp[j - low] = false;
-      }
-    }
-
-    for (std::size_t i = low; i <= high; i++) {
-      if (lp[i - low]) {
-        pr.push_back(i);
-        buf.push(i);
-      }
-    }
-
-    low += lim;
-    high += lim;
-    if (high > n) {
-      high = n;
-    }
-    lp.reset(true);
-  }
-  buf.end();
-  out.join();
 }
 
 static void sieve_atkhin_tail() {
@@ -487,4 +378,50 @@ void prime::sieve_atkhin(uint_fast64_t n) {
   }
   buf.end();
   out.join();
+}
+
+void prime::generator(uint_fast64_t n, bool stat) {
+  switch (n) {
+  case 0:
+  case 1:
+    std::cerr << "Too low number. Minimal number: 2" << std::endl;
+    return;
+  case 2:
+    std::cout << 2 << std::endl;
+    return;
+  case 3:
+  case 4:
+    std::cout << 2 << "\n" << 3 << std::endl;
+    return;
+  }
+  if (n > UINT_MAX) {
+    std::cerr << "Too much or negative number." << std::endl;
+    return;
+  }
+
+  int thr_count = std::thread::hardware_concurrency();
+  std::chrono::duration<double, std::milli> elapsed_t;
+  auto start = std::chrono::high_resolution_clock::now();
+  if (thr_count > 2) {
+  } else {
+    sieve_atkhin(n);
+  }
+  auto end = std::chrono::high_resolution_clock::now();
+  elapsed_t = end - start;
+  if (stat) {
+    std::cout << std::fixed << std::setprecision(1)
+              << "Time: " << elapsed_t.count() << " ms\n";
+    double size = std::filesystem::file_size(".cache.bin");
+    std::string b("B");
+    if (size > 1024) {
+      size /= 1024;
+      b = "KB";
+      if (size > 1024) {
+        size /= 1024;
+        b = "MB";
+      }
+    }
+    std::cout << "Cache size: " << std::setprecision(1) << size << " " << b
+              << std::endl;
+  }
 }

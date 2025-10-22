@@ -89,7 +89,6 @@ class primes : private bitmap {
   };
 
   void debug_print();
-  void find_last_prime();
 
 public:
   primes(uint_fast64_t n, std::string = ".cache.bin");
@@ -103,12 +102,11 @@ public:
   Iterator end() const;
   uint_fast64_t getPrime() const;
   void no_cache();
+  void find_last_prime();
   ~primes();
 };
 
-primes sieve_linear(uint_fast64_t n);
-void sieve_linear_simple(uint_fast64_t n);
-void sieve_segmented(uint_fast64_t n);
 void sieve_atkhin(uint_fast64_t n);
+void generator(uint_fast64_t n, bool = true);
 
 } // namespace prime
