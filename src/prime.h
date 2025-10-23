@@ -107,6 +107,9 @@ public:
 };
 
 void sieve_atkhin(uint_fast64_t n);
+void sieve(bitmap &nums, uint_fast64_t &x, uint_fast64_t &n);
+void final_sieve(bitmap &nums, uint_fast64_t &i, uint_fast64_t &n);
+void sieve_atkhin_threads(uint_fast64_t n);
 void generator(uint_fast64_t n, bool = true);
 
 } // namespace prime

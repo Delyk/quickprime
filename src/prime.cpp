@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <initializer_list>
 #include <iomanip>
 #include <iostream>
@@ -15,8 +16,16 @@
 #include <ostream>
 #include <thread>
 #include <vector>
+#define CHANGE                                                                 \
+  {                                                                            \
+    mtx.lock();                                                                \
+    nums[eq] = !nums[eq];                                                      \
+    mtx.unlock();                                                              \
+  }
 
 std::atomic<bool> finished = false;
+std::mutex mtx;
+size_t thr_count = 0;
 
 void prime::primes_queque::push(uint_fast64_t val) {
   std::lock_guard<std::mutex> lock(mtx);
@@ -315,11 +324,103 @@ prime::primes::~primes() {
   }
 }
 
+void prime::sieve(bitmap &nums, uint_fast64_t &x, uint_fast64_t &n) {
+  uint_fast64_t x2 = x * x;
+  uint_fast64_t lim = std::sqrt(n);
+  for (uint_fast64_t y = 1; y <= lim; y++) {
+    uint_fast64_t y2 = y * y;
+    uint_fast64_t eq = 4 * x2 + y2;
+    if (eq <= n && (eq % 12 == 1 || eq % 12 == 5)) {
+      CHANGE
+    }
+
+    eq = 3 * x2 + y2;
+    if (eq <= n && (eq % 12 == 7)) {
+      CHANGE
+    }
+    if (x > y) {
+      eq = 3 * x2 - y2;
+      if (eq <= n && (eq % 12 == 11)) {
+        CHANGE
+      }
+    }
+  }
+}
+
+void prime::final_sieve(bitmap &nums, uint_fast64_t &i, uint_fast64_t &n) {
+  uint_fast64_t i2 = i * i;
+  for (uint_fast64_t j = i2; j < n; j += i2) {
+    mtx.lock();
+    nums[j] = false;
+    mtx.unlock();
+  }
+}
+
+static void wait_threads(std::vector<std::thread> &threads) {
+  for (size_t i = 0; i < threads.size(); i++) {
+    if (threads[i].joinable()) {
+      threads[i].join();
+    }
+  }
+  threads.clear();
+}
+
 static void sieve_atkhin_tail() {
   std::vector<uint_fast64_t> v{2, 3, 5};
   for (auto i : v) {
     std::cout << i << std::endl;
   }
+}
+
+void prime::sieve_atkhin_threads(uint_fast64_t n) {
+  if (n < 2) {
+    return;
+  }
+  primes primes{{2, 3, 5}, n};
+  if (primes.getPrime() && primes.getPrime() != 5) {
+    primes.print();
+    return;
+  }
+  primes_queque buf;
+  std::thread out(output, std::ref(buf));
+  std::vector<std::thread> threads;
+  bitmap nums(n, false);
+  uint_fast64_t lim = std::sqrt(n);
+  if (lim >= 3)
+    nums[2] = nums[3] = true;
+
+  for (uint_fast64_t x = 1; x <= lim; x++) {
+    if (threads.size() >= thr_count) {
+      wait_threads(threads);
+    } else {
+      threads.emplace_back(sieve, std::ref(nums), std::ref(x), std::ref(n));
+    }
+  }
+
+  wait_threads(threads);
+
+  for (uint_fast64_t i = 5; i <= lim; i++) {
+    if (nums[i]) {
+      if (threads.size() >= thr_count) {
+        wait_threads(threads);
+      } else {
+        threads.emplace_back(final_sieve, std::ref(nums), std::ref(i),
+                             std::ref(n));
+      }
+    }
+  }
+
+  wait_threads(threads);
+
+  sieve_atkhin_tail();
+  for (std::size_t i = 6; i <= n; i++) {
+    if (nums[i]) {
+      primes.push_back(i);
+      buf.push(i);
+    }
+  }
+  buf.end();
+  out.join();
 }
 
 void prime::sieve_atkhin(uint_fast64_t n) {
@@ -335,7 +436,6 @@ void prime::sieve_atkhin(uint_fast64_t n) {
   std::thread out(output, std::ref(buf));
   bitmap nums(n, false);
   uint_fast64_t lim = std::sqrt(n);
-  sieve_atkhin_tail();
   if (lim >= 3)
     nums[2] = nums[3] = true;
 
@@ -370,6 +470,7 @@ void prime::sieve_atkhin(uint_fast64_t n) {
     }
   }
 
+  sieve_atkhin_tail();
   for (std::size_t i = 6; i <= n; i++) {
     if (nums[i]) {
       primes.push_back(i);
@@ -394,15 +495,16 @@ void prime::generator(uint_fast64_t n, bool stat) {
     std::cout << 2 << "\n" << 3 << std::endl;
     return;
   }
-  if (n > UINT_MAX) {
+  if (n > 1000000000) {
     std::cerr << "Too much or negative number." << std::endl;
     return;
   }
 
-  int thr_count = std::thread::hardware_concurrency();
+  thr_count = std::thread::hardware_concurrency();
   std::chrono::duration<double, std::milli> elapsed_t;
   auto start = std::chrono::high_resolution_clock::now();
   if (thr_count > 2) {
+    sieve_atkhin_threads(n);
   } else {
     sieve_atkhin(n);
   }
