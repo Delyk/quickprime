@@ -16,6 +16,7 @@
 #include <vector>
 namespace prime {
 
+/*Буферизированная очередь*/
 class primes_queque {
   std::queue<uint_fast64_t> q;
   std::mutex mtx;
@@ -29,6 +30,8 @@ public:
 
 void output(primes_queque &buffer);
 
+/*Класс для решета, представленные в виде массива байтов, биты которых указывают
+ * на состояние числа true/false */
 class bitmap {
 
   uint_fast64_t size;
@@ -41,7 +44,7 @@ protected:
 
   public:
     boolean(char &byte, unsigned offset);
-    boolean();
+    boolean() = default;
     operator bool() const;
     boolean &operator=(bool bit);
     ~boolean();
@@ -58,6 +61,8 @@ public:
   void reset(bool num = true);
 };
 
+/* Класс для хранения простых чисел. Тоже в виде  битового массива. А также для
+ * сохранения/загрузки кэша */
 class primes : private bitmap {
   boolean &operator[](uint_fast64_t index) = delete;
   uint_fast64_t size;
@@ -88,8 +93,6 @@ class primes : private bitmap {
     Iterator operator++(int);
   };
 
-  void debug_print();
-
 public:
   primes(uint_fast64_t n, std::string = ".cache.bin");
   primes(const primes &);
@@ -106,6 +109,7 @@ public:
   ~primes();
 };
 
+/*Решето Аткина*/
 void sieve_atkhin(uint_fast64_t n);
 void sieve(bitmap &nums, uint_fast64_t &x, uint_fast64_t &n);
 void final_sieve(bitmap &nums, uint_fast64_t &i, uint_fast64_t &n);

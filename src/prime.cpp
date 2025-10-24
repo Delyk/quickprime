@@ -1,6 +1,5 @@
 #include "prime.h"
 #include <atomic>
-#include <bitset>
 #include <chrono>
 #include <climits>
 #include <cmath>
@@ -23,16 +22,45 @@
     mtx.unlock();                                                              \
   }
 
-std::atomic<bool> finished = false;
+std::atomic<bool> finished = false; //Флаг остановки потока
 std::mutex mtx;
-size_t thr_count = 0;
+size_t thr_count = 0; //Кол-во потоков процессора
 
+/*** Функция для вывода чисел в отдельном потоке ***/
+void prime::output(primes_queque &buffer) {
+  while (true) {
+    uint_fast64_t val = buffer.pop();
+    if (val == 0 && finished.load()) {
+      break;
+    }
+    std::cout << val << std::endl;
+  }
+}
+
+/*** По байту и смещению получить исходное число. ***/
+static inline uint_fast64_t to_num(uint_fast64_t byte, uint_fast64_t offset) {
+  return byte * 8 + offset;
+}
+
+/* Ожидание завершения потоков */
+static void wait_threads(std::vector<std::thread> &threads) {
+  for (size_t i = 0; i < threads.size(); i++) {
+    if (threads[i].joinable()) {
+      threads[i].join();
+    }
+  }
+  threads.clear();
+}
+
+/*** Методы очереди ***/
+/* Помещаем число в очередь, уведомляем поток вывода. */
 void prime::primes_queque::push(uint_fast64_t val) {
   std::lock_guard<std::mutex> lock(mtx);
   q.push(val);
   v.notify_one();
 }
 
+/* Ждёт пока в очереди не появится число и извлекает его. */
 uint_fast64_t prime::primes_queque::pop() {
   std::unique_lock<std::mutex> lock(mtx);
   v.wait(lock, [&] { return !q.empty() || finished.load(); });
@@ -44,44 +72,30 @@ uint_fast64_t prime::primes_queque::pop() {
   return val;
 }
 
+/* Функция завершения потока */
 void prime::primes_queque::end() {
   finished.store(true);
   v.notify_one();
 }
 
-void prime::output(primes_queque &buffer) {
-  while (true) {
-    uint_fast64_t val = buffer.pop();
-    if (val == 0 && finished.load()) {
-      break;
-    }
-    std::cout << val << std::endl;
-  }
-}
-
-static inline uint_fast64_t to_num(uint_fast64_t byte, uint_fast64_t offset) {
-  return byte * 8 + offset;
-}
-
-prime::bitmap::boolean::boolean() {
-  this->bit = 0;
-  this->offset = 0;
-  this->byte = 0;
-}
-
+/*** Внутренний ссылочный тип на бит массива ***/
+/* Конструктор */
 prime::bitmap::boolean::boolean(char &byte, unsigned offset) : offset(offset) {
   this->byte = &byte;
   bit = byte & (1 << offset);
 }
 
+/* Деструктор */
 prime::bitmap::boolean::~boolean() {
   byte = nullptr;
   bit = 0;
   offset = 0;
 }
 
+/* Оператор приведения к типу bool */
 prime::bitmap::boolean::operator bool() const { return bit; }
 
+/* Оператор установки бита */
 prime::bitmap::boolean &prime::bitmap::boolean::operator=(bool bit) {
   this->bit = bit;
 
@@ -94,6 +108,8 @@ prime::bitmap::boolean &prime::bitmap::boolean::operator=(bool bit) {
   return *this;
 }
 
+/*** Массив битов для решета ***/
+/* Конструктор */
 prime::bitmap::bitmap(uint_fast64_t size, bool fill) : bits(nullptr) {
   if (size) {
     this->size = size / 8 + 1;
@@ -103,6 +119,11 @@ prime::bitmap::bitmap(uint_fast64_t size, bool fill) : bits(nullptr) {
   }
 }
 
+/* Деструктор */
+prime::bitmap::~bitmap() { delete[] bits; }
+
+/* Опретор индексирования, возвращает
+ * внутренний ссылочный тип на бит */
 prime::bitmap::boolean &prime::bitmap::operator[](uint_fast64_t index) {
   uint_fast64_t true_index = index / 8;
   unsigned offset = index % 8;
@@ -110,6 +131,7 @@ prime::bitmap::boolean &prime::bitmap::operator[](uint_fast64_t index) {
   return bit;
 }
 
+/* Сбросить биты */
 void prime::bitmap::reset(bool num) {
   char number = num ? -1 : 0;
   for (size_t i = 0; i < size; i++) {
@@ -117,26 +139,18 @@ void prime::bitmap::reset(bool num) {
   }
 }
 
+/* Инициализация битов */
 void prime::bitmap::init_bits(uint_fast64_t size, bool fill) {
   if (bits) {
     delete[] bits;
   }
   bits = new char[size];
 
-  char num;
-  if (fill) {
-    num = -1;
-  } else {
-    num = 0;
-  }
-
-  for (uint_fast64_t i = 0; i < size; i++) {
-    bits[i] = num;
-  }
+  reset(fill);
 }
 
-prime::bitmap::~bitmap() { delete[] bits; }
-
+/*** Класс для простых чисел ***/
+/* Конструктор */
 prime::primes::primes(uint_fast64_t n, std::string c)
     : size(n), has_num(false) {
   true_size = size / 8 + 1;
@@ -161,6 +175,7 @@ prime::primes::primes(uint_fast64_t n, std::string c)
   }
 }
 
+/* Конструктор копирования */
 prime::primes::primes(const primes &pr)
     : size(pr.size), true_size(pr.true_size), has_num(pr.has_num) {
   bits = new char[true_size];
@@ -169,6 +184,7 @@ prime::primes::primes(const primes &pr)
   }
 }
 
+/* Конструктор со списком инициализации */
 prime::primes::primes(std::initializer_list<uint_fast64_t> list,
                       uint_fast64_t n)
     : primes(n) {
@@ -179,6 +195,99 @@ prime::primes::primes(std::initializer_list<uint_fast64_t> list,
   }
 }
 
+/* Деструктор с записью кэша */
+prime::primes::~primes() {
+  if (write_cache) {
+    std::ofstream cache =
+        std::ofstream(".cache.bin", std::ios::out | std::ios::binary);
+
+    if (cache.is_open()) {
+      cache.write(bits, true_size);
+      cache.close();
+    } else {
+      std::cerr << "Cannot create cache file. Check permissions." << std::endl;
+    }
+  }
+}
+
+/* Поместить число в контейнер */
+void prime::primes::push_back(uint_fast64_t n) {
+  if (n > size) {
+    std::cerr << "Error. Array overflow. " << n << " > " << size << std::endl;
+    exit(1);
+  }
+  uint_fast64_t b = n / 8;
+  unsigned char offset = n % 8;
+  bits[b] |= (1 << offset);
+  has_num = n;
+}
+
+/* Оператор присваивания */
+prime::primes &prime::primes::operator=(primes &pr) {
+  this->has_num = pr.has_num;
+  pr.write_cache = false;
+  if (this->size < pr.size) {
+    this->size = pr.size;
+    this->true_size = pr.true_size;
+    delete[] bits;
+    bits = new char[true_size];
+  }
+  for (uint_fast64_t i = 0; i < pr.true_size; i++) {
+    bits[i] = pr.bits[i];
+  }
+  return *this;
+}
+
+/* Опретор присваивания с перемещением */
+prime::primes &prime::primes::operator=(primes &&pr) noexcept {
+  if (this->size < pr.size) {
+    this->size = pr.size;
+    this->true_size = pr.true_size;
+  }
+  this->has_num = pr.has_num;
+  for (uint_fast64_t i = 0; i < pr.true_size; i++) {
+    this->bits[i] = pr.bits[i];
+  }
+
+  pr.bits = nullptr;
+  pr.size = 0;
+  pr.true_size = 0;
+  pr.has_num = 0;
+  pr.write_cache = false;
+  return *this;
+}
+
+/* Вывод простых чисел */
+void prime::primes::print() const {
+  for (uint_fast64_t i : *this) {
+    std::cout << i << std::endl;
+  }
+}
+
+/* Получить последнее просеянное число */
+uint_fast64_t prime::primes::getPrime() const { return this->has_num; }
+
+/* Не записывать кэш */
+void prime::primes::no_cache() { write_cache = false; }
+
+/* Получить последнее простое из кэша */
+void prime::primes::find_last_prime() {
+  for (int_fast64_t i = true_size - 1; i != 0; i--) {
+    for (int offset = 7; offset >= 0; offset--) {
+      if (bits[i] & (1 << offset)) {
+        has_num = to_num(i, offset);
+        if (has_num > size) {
+          has_num = 0;
+          continue;
+        }
+        return;
+      }
+    }
+  }
+}
+
+/*** Итератор для простых чисел ***/
+/* Конструктор - устанавливает указатель на первое простое число*/
 prime::primes::Iterator::Iterator(prime::primes::Iterator::pointer ptr,
                                   uint_fast64_t size, uint_fast64_t have_nums)
     : byte(0), offset(0), have_num(have_nums) {
@@ -192,10 +301,12 @@ prime::primes::Iterator::Iterator(prime::primes::Iterator::pointer ptr,
   }
 }
 
+/* Оператор разыменования - получиение числа по байту и смещению */
 prime::primes::Iterator::reference prime::primes::Iterator::operator*() {
   return byte * 8 + offset;
 }
 
+/* Инкремент (префиксный) Переместить указатель на следующее простое число */
 prime::primes::Iterator &prime::primes::Iterator::operator++() {
   if (m_ptr) {
     while (byte < size && to_num(byte, offset) != have_num) {
@@ -215,115 +326,29 @@ prime::primes::Iterator &prime::primes::Iterator::operator++() {
   return *this;
 }
 
+/* Инкремент (постфиксный) */
 prime::primes::Iterator prime::primes::Iterator::operator++(int t) {
   Iterator tmp = *this;
   ++(*this);
   return tmp;
 }
 
+/* Опретор сравнения для проверки условия выхода из цикла */
 bool prime::primes::Iterator::operator!=(Iterator &it) const {
   return to_num(byte, offset) != 0;
 }
 
-void prime::primes::push_back(uint_fast64_t n) {
-  if (n > size) {
-    std::cerr << "Error. Array overflow. " << n << " > " << size << std::endl;
-    exit(1);
-  }
-  uint_fast64_t b = n / 8;
-  unsigned char offset = n % 8;
-  bits[b] |= (1 << offset);
-  has_num = n;
-}
-
+/* Начало итерации */
 prime::primes::Iterator prime::primes::begin() const {
   return Iterator(bits, true_size, has_num);
 }
 
+/* Конец итерации*/
 prime::primes::Iterator prime::primes::end() const {
   return Iterator(nullptr, 0, false);
 }
 
-prime::primes &prime::primes::operator=(primes &pr) {
-  this->has_num = pr.has_num;
-  pr.write_cache = false;
-  if (this->size < pr.size) {
-    this->size = pr.size;
-    this->true_size = pr.true_size;
-    delete[] bits;
-    bits = new char[true_size];
-  }
-  for (uint_fast64_t i = 0; i < pr.true_size; i++) {
-    bits[i] = pr.bits[i];
-  }
-  return *this;
-}
-
-prime::primes &prime::primes::operator=(primes &&pr) noexcept {
-  if (this->size < pr.size) {
-    this->size = pr.size;
-    this->true_size = pr.true_size;
-  }
-  this->has_num = pr.has_num;
-  for (uint_fast64_t i = 0; i < pr.true_size; i++) {
-    this->bits[i] = pr.bits[i];
-  }
-
-  pr.bits = nullptr;
-  pr.size = 0;
-  pr.true_size = 0;
-  pr.has_num = 0;
-  pr.write_cache = false;
-  return *this;
-}
-
-void prime::primes::print() const {
-  for (uint_fast64_t i : *this) {
-    std::cout << i << std::endl;
-  }
-}
-
-void prime::primes::debug_print() {
-  std::cout << "Array: ";
-  for (size_t i = 0; i < true_size; i++) {
-    std::cout << std::bitset<8>(bits[i]) << " ";
-  }
-  std::cout << std::endl;
-}
-
-uint_fast64_t prime::primes::getPrime() const { return this->has_num; }
-
-void prime::primes::no_cache() { write_cache = false; }
-
-void prime::primes::find_last_prime() {
-  for (int_fast64_t i = true_size - 1; i != 0; i--) {
-    for (int offset = 7; offset >= 0; offset--) {
-      if (bits[i] & (1 << offset)) {
-        has_num = to_num(i, offset);
-        if (has_num > size) {
-          has_num = 0;
-          continue;
-        }
-        return;
-      }
-    }
-  }
-}
-
-prime::primes::~primes() {
-  if (write_cache) {
-    std::ofstream cache =
-        std::ofstream(".cache.bin", std::ios::out | std::ios::binary);
-
-    if (cache.is_open()) {
-      cache.write(bits, true_size);
-      cache.close();
-    } else {
-      std::cerr << "Cannot create cache file. Check permissions." << std::endl;
-    }
-  }
-}
-
+/* Функция для потока просеивания */
 void prime::sieve(bitmap &nums, uint_fast64_t &x, uint_fast64_t &n) {
   uint_fast64_t x2 = x * x;
   uint_fast64_t lim = std::sqrt(n);
@@ -347,6 +372,7 @@ void prime::sieve(bitmap &nums, uint_fast64_t &x, uint_fast64_t &n) {
   }
 }
 
+/* Функция для потока просеивания */
 void prime::final_sieve(bitmap &nums, uint_fast64_t &i, uint_fast64_t &n) {
   uint_fast64_t i2 = i * i;
   for (uint_fast64_t j = i2; j < n; j += i2) {
@@ -356,15 +382,7 @@ void prime::final_sieve(bitmap &nums, uint_fast64_t &i, uint_fast64_t &n) {
   }
 }
 
-static void wait_threads(std::vector<std::thread> &threads) {
-  for (size_t i = 0; i < threads.size(); i++) {
-    if (threads[i].joinable()) {
-      threads[i].join();
-    }
-  }
-  threads.clear();
-}
-
+/* Первые 3 числа решета Аткина */
 static void sieve_atkhin_tail() {
   std::vector<uint_fast64_t> v{2, 3, 5};
   for (auto i : v) {
@@ -372,6 +390,7 @@ static void sieve_atkhin_tail() {
   }
 }
 
+/* Многопоточное решето Аткина */
 void prime::sieve_atkhin_threads(uint_fast64_t n) {
   if (n < 2) {
     return;
@@ -423,6 +442,7 @@ void prime::sieve_atkhin_threads(uint_fast64_t n) {
   out.join();
 }
 
+/* Простое решето Аткина */
 void prime::sieve_atkhin(uint_fast64_t n) {
   if (n < 2) {
     return;
@@ -481,6 +501,7 @@ void prime::sieve_atkhin(uint_fast64_t n) {
   out.join();
 }
 
+/* Функция генерации простых чисел */
 void prime::generator(uint_fast64_t n, bool stat) {
   switch (n) {
   case 0:

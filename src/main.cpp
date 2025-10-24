@@ -1,9 +1,6 @@
 #include "prime.h"
-#include <chrono>
 #include <cstdint>
 #include <cstdlib>
-#include <iomanip>
-#include <ratio>
 #define COUNT 3
 #define TEST_NUM 300
 using namespace prime;
